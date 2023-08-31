@@ -22,3 +22,4 @@ Please download data that you need from [Google Drive](https://drive.google.com/
 ### Step 1: 
 
 ## Sample Video (can be played with Safari)
+![2on2_1_left_0 mp4_animation](https://github.com/sflren6741/Handball_analysis/assets/103619748/d4b20954-99f8-4724-8f4b-4619427ea1b9)
