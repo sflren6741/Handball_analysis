@@ -19,10 +19,6 @@ Ren Kobayashi - kobayashi.ren@g.sp.m.is.nagoya-u.ac.jp
 
 Please download data that you need from [Google Drive](https://drive.google.com/drive/folders/1-7ZCkElkJSG0fVM_Edj_IsQSM-3bxzqe).
 
-### Step 1: Estimating keypoints from walking videos
-
-### Step 2: Making model input data
-
-### Step 3: Evaluation of the models and visualization of the detection grounds
+### Step 1: 
 
 ## Sample Video (can be played with Safari)
