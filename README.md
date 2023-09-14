@@ -3,7 +3,7 @@
 Ren Kobayashi, Rikuhei Umemoto, Kazuya Takeda, Keisuke Fujii, Score prediction using multiple object tracking for analyzing movements in 2-vs-2 Handball, IEEE 12th Global Conference on Consumer Electronics (GCCE 2023), 2023.10.10. 
 
 ## Introduction
-You can identify important features in handball 2-vs-2 by using this code. 
+You can identify the important features in handball 2-vs-2 by using this code. 
 
 If you have any questions or errors, please contact the author.
 
