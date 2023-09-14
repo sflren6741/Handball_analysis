@@ -4,6 +4,7 @@ Ren Kobayashi, Rikuhei Umemoto, Kazuya Takeda, Keisuke Fujii, Score prediction u
 
 ## Introduction
 You can identify important features in handball 2-vs-2 by using this code. 
+
 If you have any questions or errors, please contact the author.
 
 ## Sample Video (can be played with Safari)
