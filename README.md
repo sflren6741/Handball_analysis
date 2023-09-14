@@ -8,7 +8,7 @@ You can identify the important features in handball 2-vs-2 by using this code.
 If you have any questions or errors, please contact the author.
 
 ## Sample Video
-![2on2_1_left_0 mp4_animation](https://github.com/sflren6741/Handball_analysis/assets/103619748/d4b20954-99f8-4724-8f4b-4619427ea1b9)
+![2on2_1_left_8 mp4_animation](https://github.com/sflren6741/Handball_analysis/assets/103619748/d693ec79-cd65-4205-b79c-63979ace3688)
 
 ## Sample result
 This is an example of feature importance obtained by analysis.
