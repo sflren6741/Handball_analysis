@@ -1,123 +1,25 @@
 # -*- coding: UTF-8 -*-  
-import glob, os, sys, argparse
+import glob
+import os
+import sys
+import pickle
+import json
+
 import numpy as np
 import pandas as pd
-import os
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as patches
 from scipy import signal
-import pickle
-
-import cv2
-import json
-import ndjson
-import requests
-import torch
-from tabpfn.scripts.transformer_prediction_interface import TabPFNClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn import model_selection
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
-from mlxtend.plotting import plot_decision_regions
 
 plt.rcParams["font.size"] = 18
 
-
-def import_bbox(lb):
-    # import bbox from somewhere
-    exports = requests.get(label_url).json() # Information on several videos.
-    positions_data = dict()
-
-    for export in exports:
-        annotations = ndjson.loads("") # 
-        positions_data_ = bbox2position(annotations)
-        positions_data[externalID] = position_data_
-    with open(path_pkl, 'wb') as p:
-        pickle.dump(positions_data, p)
-    
-    return positions_data
-
-
-def bbox2position(annotations)
-    first_frame = annotations[0]["frameNumber"]
-    annotations = {annot["frameNumber"] : annot for annot in annotations}
-    # print(annotations)
-    # first_frame_annot = annotations[first_frame]
-    # print(first_frame)
-    len_frame = len(annotations)
-    n_id = len(annotations[first_frame]['objects'])
-    position_data_ = dict()
-
-    for i in range(n_id): # n_id: 選手の人数
-        position_data = []
-        for annot in annotations.values(): # フレームごとに処理
-            if i < len(annot['objects']):
-                objectID = annot['objects'][i]["title"]
-                position_data.append(
-                    [annot['objects'][i]['bbox']['left'] + annot['objects'][i]['bbox']['width'] / 2, 
-                        annot['objects'][i]['bbox']['top'] + annot['objects'][i]['bbox']['height']])
-        position_data_[objectID] = position_data
-        # print("bbox_data_")
-        # print(bbox_data_)    
-        print(objectID)    
-    position_data_["len_frame"] = len_frame
-
-    return positions_data_
-
-def get_cort_positions(positions_data):
-    cort_positions_data = dict()
-    for externalID, position_data_ in positions_data.items():
-        cort_position_data_ = dict()
-        for objectID, position_data in position_data_.items():
-            if objectID != "len_frame":
-                position_data = np.asarray(position_data)
-                position_data[:, 0] += 1600
-                position_data[:, 1] += 2050
-                tmp = cv2.perspectiveTransform(np.asarray([position_data], dtype=np.float32), H)[0]
-                if "left" in externalID:
-                    cort_position_data_[objectID] = tmp
-                else:
-                    tmp[:, 0] = 40 - tmp[:, 0]
-                    tmp[:, 1] = 20 - tmp[:, 1]
-                    cort_position_data_[objectID] = tmp
-        cort_position_data_["len_frame"] = position_data_["len_frame"]
-        cort_positions_data[externalID] = cort_position_data_
-    # keypoints_fish2 = cv2.perspectiveTransform(np.asarray([keypoints_fish_undistort], dtype=np.float32), H)[0]
-    with open(path_pkl2, 'wb') as p:
-        pickle.dump(cort_positions_data, p)
-    return cort_positions_data
-
-
-def lowpass(x, samplerate, fp, fs, gpass, gstop):
-    fn = samplerate / 2                           #ナイキスト周波数
-    wp = fp / fn                                  #ナイキスト周波数で通過域端周波数を正規化
-    ws = fs / fn                                  #ナイキスト周波数で阻止域端周波数を正規化
-    N, Wn = signal.buttord(wp, ws, gpass, gstop)  #オーダーとバターワースの正規化周波数を計算
-    b, a = signal.butter(N, Wn, "low")            #フィルタ伝達関数の分子と分母を計算
-    y = signal.filtfilt(b, a, x)                  #信号に対してフィルタをかける
-    return y
-
-
-def get_low_pass_data(cort_positions_data):
-    samplerate, fp, fs, gpass, gstop = 30, 1, 3, 1, 2
-    filtered_positions_data = dict()
-    for externalID, cort_position_data_ in cort_positions_data.items(): # 動画ごとに処理
-        print('export: '+ externalID)
-        filtered_position_data = dict()
-        filtered_position_data_ = dict()
-        for objectID, cort_position_data in cort_position_data_.items(): # 選手ごとに処理
-            if objectID != "len_frame":
-                data_x_filt = lowpass(cort_position_data[:,0], samplerate, fp, fs, gpass, gstop)
-                data_y_filt = lowpass(cort_position_data[:,1], samplerate, fp, fs, gpass, gstop)
-                filtered_position_data[objectID] = np.asarray(list(zip(data_x_filt, data_y_filt)), dtype=np.float32)
-        filtered_position_data['len_frame'] = cort_position_data_['len_frame']
-        filtered_positions_data[externalID] = filtered_position_data
-    with open(path_pkl3, 'wb') as p:
-            pickle.dump(filtered_positions_data, p)
-    return filtered_positions_data
 
 def get_animation(filtered_positions_data):
     fig = plt.figure()
@@ -164,11 +66,11 @@ def get_animation(filtered_positions_data):
         anime = animation.ArtistAnimation(fig, ims, interval=100)
         anime.save(f"./ani_position/{fig_title}.gif", writer="pillow")
 
-def get_analysis_data(filtered_positions_data):
+def get_analysis_data(positions_data):
     input_file_name = 'Handball_2on2_2022_NU.xlsx'
     frame_error = 0
     analysis_data_ = dict()
-    for externalID, filtered_position_data_ in filtered_positions_data.items(): # 動画ごとに処理
+    for externalID, position_data_ in positions_data.items(): # 動画ごとに処理
         analysis_data = dict()
         print('export: '+ externalID)
         # print(filtered_position_data_)
@@ -196,53 +98,52 @@ def get_analysis_data(filtered_positions_data):
             action_t.append(data_frame[f'action{i}_t'])
             action_p.append(data_frame[f'action{i}_p'])
         if analysis_data['OF1_dominant_hand'] == 1:
-            print('OF1_dominant_hand==1')
-            analysis_data['OF1_velocity_x_catch'] = (filtered_position_data_['0_0'][3, :][0] - filtered_position_data_['0_0'][0, :][0])
-            analysis_data['OF1_velocity_y_catch'] = (filtered_position_data_['0_0'][3, :][1] - filtered_position_data_['0_0'][0, :][1])
-            analysis_data['OF2_velocity_x_catch'] = (filtered_position_data_['0_1'][3, :][0] - filtered_position_data_['0_1'][0, :][0])
-            analysis_data['OF2_velocity_y_catch'] = (filtered_position_data_['0_1'][3, :][1] - filtered_position_data_['0_1'][0, :][1])
-            analysis_data['DF1_velocity_x_catch'] = (filtered_position_data_['1_2'][3, :][0] - filtered_position_data_['1_2'][0, :][0])
-            analysis_data['DF1_velocity_y_catch'] = (filtered_position_data_['1_2'][3, :][1] - filtered_position_data_['1_2'][0, :][1])
-            analysis_data['DF2_velocity_x_catch'] = (filtered_position_data_['1_3'][3, :][0] - filtered_position_data_['1_3'][0, :][0])
-            analysis_data['DF2_velocity_y_catch'] = (filtered_position_data_['1_3'][3, :][1] - filtered_position_data_['1_3'][0, :][1])
-            analysis_data['OF1_position_x_catch'] = filtered_position_data_['0_0'][0, :][0]
-            analysis_data['OF1_position_y_catch'] = filtered_position_data_['0_0'][0, :][1]
-            analysis_data['OF2_position_x_catch'] = filtered_position_data_['0_1'][0, :][0]
-            analysis_data['OF2_position_y_catch'] = filtered_position_data_['0_1'][0, :][1]
-            analysis_data['DF1_position_x_catch'] = filtered_position_data_['1_2'][0, :][0]
-            analysis_data['DF1_position_y_catch'] = filtered_position_data_['1_2'][0, :][1]
-            analysis_data['DF2_position_x_catch'] = filtered_position_data_['1_3'][0, :][0]
-            analysis_data['DF2_position_y_catch'] = filtered_position_data_['1_3'][0, :][1]
-            analysis_data['OF1_OF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][0]-filtered_position_data_['0_1'][0])))
-            analysis_data['OF1_DF1_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][0]-filtered_position_data_['1_2'][0])))
-            analysis_data['OF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][0]-filtered_position_data_['1_3'][0])))
-            analysis_data['OF2_DF1_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][0]-filtered_position_data_['1_2'][0])))
-            analysis_data['OF2_DF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][0]-filtered_position_data_['1_3'][0])))
-            analysis_data['DF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['1_2'][0]-filtered_position_data_['1_3'][0])))
+            # print('OF1_dominant_hand==1')
+            analysis_data['OF1_velocity_x_catch'] = (position_data_['0_0'][3, :][0] - position_data_['0_0'][0, :][0])
+            analysis_data['OF1_velocity_y_catch'] = (position_data_['0_0'][3, :][1] - position_data_['0_0'][0, :][1])
+            analysis_data['OF2_velocity_x_catch'] = (position_data_['0_1'][3, :][0] - position_data_['0_1'][0, :][0])
+            analysis_data['OF2_velocity_y_catch'] = (position_data_['0_1'][3, :][1] - position_data_['0_1'][0, :][1])
+            analysis_data['DF1_velocity_x_catch'] = (position_data_['1_2'][3, :][0] - position_data_['1_2'][0, :][0])
+            analysis_data['DF1_velocity_y_catch'] = (position_data_['1_2'][3, :][1] - position_data_['1_2'][0, :][1])
+            analysis_data['DF2_velocity_x_catch'] = (position_data_['1_3'][3, :][0] - position_data_['1_3'][0, :][0])
+            analysis_data['DF2_velocity_y_catch'] = (position_data_['1_3'][3, :][1] - position_data_['1_3'][0, :][1])
+            analysis_data['OF1_position_x_catch'] = position_data_['0_0'][0, :][0]
+            analysis_data['OF1_position_y_catch'] = position_data_['0_0'][0, :][1]
+            analysis_data['OF2_position_x_catch'] = position_data_['0_1'][0, :][0]
+            analysis_data['OF2_position_y_catch'] = position_data_['0_1'][0, :][1]
+            analysis_data['DF1_position_x_catch'] = position_data_['1_2'][0, :][0]
+            analysis_data['DF1_position_y_catch'] = position_data_['1_2'][0, :][1]
+            analysis_data['DF2_position_x_catch'] = position_data_['1_3'][0, :][0]
+            analysis_data['DF2_position_y_catch'] = position_data_['1_3'][0, :][1]
+            analysis_data['OF1_OF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_0'][0]-position_data_['0_1'][0])))
+            analysis_data['OF1_DF1_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_0'][0]-position_data_['1_2'][0])))
+            analysis_data['OF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_0'][0]-position_data_['1_3'][0])))
+            analysis_data['OF2_DF1_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_1'][0]-position_data_['1_2'][0])))
+            analysis_data['OF2_DF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_1'][0]-position_data_['1_3'][0])))
+            analysis_data['DF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['1_2'][0]-position_data_['1_3'][0])))
         else:
-            print('OF1_dominant_hand==0')
-            analysis_data['OF1_velocity_x_catch'] = (filtered_position_data_['0_0'][3, :][0] - filtered_position_data_['0_0'][0, :][0])
-            analysis_data['OF1_velocity_y_catch'] = -((filtered_position_data_['0_0'][3, :][1] - filtered_position_data_['0_0'][0, :][1]))
-            analysis_data['OF2_velocity_x_catch'] = (filtered_position_data_['0_1'][3, :][0] - filtered_position_data_['0_1'][0, :][0])
-            analysis_data['OF2_velocity_y_catch'] = -((filtered_position_data_['0_1'][3, :][1] - filtered_position_data_['0_1'][0, :][1]))
-            analysis_data['DF1_velocity_x_catch'] = (filtered_position_data_['1_2'][3, :][0] - filtered_position_data_['1_2'][0, :][0])
-            analysis_data['DF1_velocity_y_catch'] = -((filtered_position_data_['1_2'][3, :][1] - filtered_position_data_['1_2'][0, :][1]))
-            analysis_data['DF2_velocity_x_catch'] = (filtered_position_data_['1_3'][3, :][0] - filtered_position_data_['1_3'][0, :][0])
-            analysis_data['DF2_velocity_y_catch'] = -((filtered_position_data_['1_3'][3, :][1] - filtered_position_data_['1_3'][0, :][1]))
-            analysis_data['OF1_position_x_catch'] = filtered_position_data_['0_0'][0, :][0]
-            analysis_data['OF1_position_y_catch'] = -(filtered_position_data_['0_0'][0, :][1])
-            analysis_data['OF2_position_x_catch'] = filtered_position_data_['0_1'][0, :][0]
-            analysis_data['OF2_position_y_catch'] = -(filtered_position_data_['0_1'][0, :][1])
-            analysis_data['DF1_position_x_catch'] = filtered_position_data_['1_2'][0, :][0]
-            analysis_data['DF1_position_y_catch'] = -(filtered_position_data_['1_2'][0, :][1])
-            analysis_data['DF2_position_x_catch'] = filtered_position_data_['1_3'][0, :][0]
-            analysis_data['DF2_position_y_catch'] = -(filtered_position_data_['1_3'][0, :][1])
-            analysis_data['OF1_OF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][0]-filtered_position_data_['0_1'][0])))
-            analysis_data['OF1_DF1_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][0]-filtered_position_data_['1_3'][0])))
-            analysis_data['OF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][0]-filtered_position_data_['1_2'][0])))
-            analysis_data['OF2_DF1_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][0]-filtered_position_data_['1_3'][0])))
-            analysis_data['OF2_DF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][0]-filtered_position_data_['1_2'][0])))
-            analysis_data['DF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(filtered_position_data_['1_2'][0]-filtered_position_data_['1_3'][0])))
+            analysis_data['OF1_velocity_x_catch'] = (position_data_['0_0'][3, :][0] - position_data_['0_0'][0, :][0])
+            analysis_data['OF1_velocity_y_catch'] = -((position_data_['0_0'][3, :][1] - position_data_['0_0'][0, :][1]))
+            analysis_data['OF2_velocity_x_catch'] = (position_data_['0_1'][3, :][0] - position_data_['0_1'][0, :][0])
+            analysis_data['OF2_velocity_y_catch'] = -((position_data_['0_1'][3, :][1] - position_data_['0_1'][0, :][1]))
+            analysis_data['DF1_velocity_x_catch'] = (position_data_['1_2'][3, :][0] - position_data_['1_2'][0, :][0])
+            analysis_data['DF1_velocity_y_catch'] = -((position_data_['1_2'][3, :][1] - position_data_['1_2'][0, :][1]))
+            analysis_data['DF2_velocity_x_catch'] = (position_data_['1_3'][3, :][0] - position_data_['1_3'][0, :][0])
+            analysis_data['DF2_velocity_y_catch'] = -((position_data_['1_3'][3, :][1] - position_data_['1_3'][0, :][1]))
+            analysis_data['OF1_position_x_catch'] = position_data_['0_0'][0, :][0]
+            analysis_data['OF1_position_y_catch'] = -(position_data_['0_0'][0, :][1])
+            analysis_data['OF2_position_x_catch'] = position_data_['0_1'][0, :][0]
+            analysis_data['OF2_position_y_catch'] = -(position_data_['0_1'][0, :][1])
+            analysis_data['DF1_position_x_catch'] = position_data_['1_2'][0, :][0]
+            analysis_data['DF1_position_y_catch'] = -(position_data_['1_2'][0, :][1])
+            analysis_data['DF2_position_x_catch'] = position_data_['1_3'][0, :][0]
+            analysis_data['DF2_position_y_catch'] = -(position_data_['1_3'][0, :][1])
+            analysis_data['OF1_OF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_0'][0]-position_data_['0_1'][0])))
+            analysis_data['OF1_DF1_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_0'][0]-position_data_['1_3'][0])))
+            analysis_data['OF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_0'][0]-position_data_['1_2'][0])))
+            analysis_data['OF2_DF1_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_1'][0]-position_data_['1_3'][0])))
+            analysis_data['OF2_DF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['0_1'][0]-position_data_['1_2'][0])))
+            analysis_data['DF1_DF2_distance_catch'] = np.sqrt(np.sum(np.square(position_data_['1_2'][0]-position_data_['1_3'][0])))
 
         shot = False
         for i in range(4):
@@ -259,55 +160,55 @@ def get_analysis_data(filtered_positions_data):
                 #print(f'shot_t:{analysis_data["shot_t"]}')
                 #print(f'shot_person:{analysis_data["shot_person"]}')
                 shot_frame = int(analysis_data['shot_t'] * 30.0 / 100.0)
-                if filtered_position_data_['len_frame'] <= shot_frame:
-                    shot_frame = filtered_position_data_['len_frame'] - 1
+                if position_data_['len_frame'] <= shot_frame:
+                    shot_frame = position_data_['len_frame'] - 1
                     frame_error += 1
                 if analysis_data['OF1_dominant_hand'] == 1:
-                    analysis_data['OF1_velocity_x_shot'] = (filtered_position_data_['0_0'][shot_frame, :][0] - filtered_position_data_['0_0'][shot_frame-3, :][0])
-                    analysis_data['OF1_velocity_y_shot'] = (filtered_position_data_['0_0'][shot_frame, :][1] - filtered_position_data_['0_0'][shot_frame-3, :][1])
-                    analysis_data['OF2_velocity_x_shot'] = (filtered_position_data_['0_1'][shot_frame, :][0] - filtered_position_data_['0_1'][shot_frame-3, :][0])
-                    analysis_data['OF2_velocity_y_shot'] = (filtered_position_data_['0_1'][shot_frame, :][1] - filtered_position_data_['0_1'][shot_frame-3, :][1])
-                    analysis_data['DF1_velocity_x_shot'] = (filtered_position_data_['1_2'][shot_frame, :][0] - filtered_position_data_['1_2'][shot_frame-3, :][0])
-                    analysis_data['DF1_velocity_y_shot'] = (filtered_position_data_['1_2'][shot_frame, :][1] - filtered_position_data_['1_2'][shot_frame-3, :][1])
-                    analysis_data['DF2_velocity_x_shot'] = (filtered_position_data_['1_3'][shot_frame, :][0] - filtered_position_data_['1_3'][shot_frame-3, :][0])
-                    analysis_data['DF2_velocity_y_shot'] = (filtered_position_data_['1_3'][shot_frame, :][1] - filtered_position_data_['1_3'][shot_frame-3, :][1])
-                    analysis_data['OF1_position_x_shot'] = filtered_position_data_['0_0'][shot_frame, :][0]
-                    analysis_data['OF1_position_y_shot'] = filtered_position_data_['0_0'][shot_frame, :][1]
-                    analysis_data['OF2_position_x_shot'] = filtered_position_data_['0_1'][shot_frame, :][0]
-                    analysis_data['OF2_position_y_shot'] = filtered_position_data_['0_1'][shot_frame, :][1]
-                    analysis_data['DF1_position_x_shot'] = filtered_position_data_['1_2'][shot_frame, :][0]
-                    analysis_data['DF1_position_y_shot'] = filtered_position_data_['1_2'][shot_frame, :][1]
-                    analysis_data['DF2_position_x_shot'] = filtered_position_data_['1_3'][shot_frame, :][0]
-                    analysis_data['DF2_position_y_shot'] = filtered_position_data_['1_3'][shot_frame, :][1]
-                    analysis_data['OF1_OF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][shot_frame]-filtered_position_data_['0_1'][shot_frame])))
-                    analysis_data['OF1_DF1_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][shot_frame]-filtered_position_data_['1_2'][shot_frame])))
-                    analysis_data['OF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][shot_frame]-filtered_position_data_['1_3'][shot_frame])))
-                    analysis_data['OF2_DF1_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][shot_frame]-filtered_position_data_['1_2'][shot_frame])))
-                    analysis_data['OF2_DF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][shot_frame]-filtered_position_data_['1_3'][shot_frame])))
-                    analysis_data['DF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['1_2'][shot_frame]-filtered_position_data_['1_3'][shot_frame])))
+                    analysis_data['OF1_velocity_x_shot'] = (position_data_['0_0'][shot_frame, :][0] - position_data_['0_0'][shot_frame-3, :][0])
+                    analysis_data['OF1_velocity_y_shot'] = (position_data_['0_0'][shot_frame, :][1] - position_data_['0_0'][shot_frame-3, :][1])
+                    analysis_data['OF2_velocity_x_shot'] = (position_data_['0_1'][shot_frame, :][0] - position_data_['0_1'][shot_frame-3, :][0])
+                    analysis_data['OF2_velocity_y_shot'] = (position_data_['0_1'][shot_frame, :][1] - position_data_['0_1'][shot_frame-3, :][1])
+                    analysis_data['DF1_velocity_x_shot'] = (position_data_['1_2'][shot_frame, :][0] - position_data_['1_2'][shot_frame-3, :][0])
+                    analysis_data['DF1_velocity_y_shot'] = (position_data_['1_2'][shot_frame, :][1] - position_data_['1_2'][shot_frame-3, :][1])
+                    analysis_data['DF2_velocity_x_shot'] = (position_data_['1_3'][shot_frame, :][0] - position_data_['1_3'][shot_frame-3, :][0])
+                    analysis_data['DF2_velocity_y_shot'] = (position_data_['1_3'][shot_frame, :][1] - position_data_['1_3'][shot_frame-3, :][1])
+                    analysis_data['OF1_position_x_shot'] = position_data_['0_0'][shot_frame, :][0]
+                    analysis_data['OF1_position_y_shot'] = position_data_['0_0'][shot_frame, :][1]
+                    analysis_data['OF2_position_x_shot'] = position_data_['0_1'][shot_frame, :][0]
+                    analysis_data['OF2_position_y_shot'] = position_data_['0_1'][shot_frame, :][1]
+                    analysis_data['DF1_position_x_shot'] = position_data_['1_2'][shot_frame, :][0]
+                    analysis_data['DF1_position_y_shot'] = position_data_['1_2'][shot_frame, :][1]
+                    analysis_data['DF2_position_x_shot'] = position_data_['1_3'][shot_frame, :][0]
+                    analysis_data['DF2_position_y_shot'] = position_data_['1_3'][shot_frame, :][1]
+                    analysis_data['OF1_OF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_0'][shot_frame]-position_data_['0_1'][shot_frame])))
+                    analysis_data['OF1_DF1_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_0'][shot_frame]-position_data_['1_2'][shot_frame])))
+                    analysis_data['OF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_0'][shot_frame]-position_data_['1_3'][shot_frame])))
+                    analysis_data['OF2_DF1_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_1'][shot_frame]-position_data_['1_2'][shot_frame])))
+                    analysis_data['OF2_DF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_1'][shot_frame]-position_data_['1_3'][shot_frame])))
+                    analysis_data['DF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['1_2'][shot_frame]-position_data_['1_3'][shot_frame])))
                 else:
-                    analysis_data['OF1_velocity_x_shot'] = (filtered_position_data_['0_0'][shot_frame, :][0] - filtered_position_data_['0_0'][shot_frame-3, :][0])
-                    analysis_data['OF1_velocity_y_shot'] = -((filtered_position_data_['0_0'][shot_frame, :][1] - filtered_position_data_['0_0'][shot_frame-3, :][1]))
-                    analysis_data['OF2_velocity_x_shot'] = (filtered_position_data_['0_1'][shot_frame, :][0] - filtered_position_data_['0_1'][shot_frame-3, :][0])
-                    analysis_data['OF2_velocity_y_shot'] = -((filtered_position_data_['0_1'][shot_frame, :][1] - filtered_position_data_['0_1'][shot_frame-3, :][1]))
-                    analysis_data['DF1_velocity_x_shot'] = (filtered_position_data_['1_2'][shot_frame, :][0] - filtered_position_data_['1_2'][shot_frame-3, :][0])
-                    analysis_data['DF1_velocity_y_shot'] = -((filtered_position_data_['1_2'][shot_frame, :][1] - filtered_position_data_['1_2'][shot_frame-3, :][1]))
-                    analysis_data['DF2_velocity_x_shot'] = (filtered_position_data_['1_3'][shot_frame, :][0] - filtered_position_data_['1_3'][shot_frame-3, :][0])
-                    analysis_data['DF2_velocity_y_shot'] = -((filtered_position_data_['1_3'][shot_frame, :][1] - filtered_position_data_['1_3'][shot_frame-3, :][1]))
-                    analysis_data['OF1_position_x_shot'] = filtered_position_data_['0_0'][shot_frame, :][0]
-                    analysis_data['OF1_position_y_shot'] = -(filtered_position_data_['0_0'][shot_frame, :][1])
-                    analysis_data['OF2_position_x_shot'] = filtered_position_data_['0_1'][shot_frame, :][0]
-                    analysis_data['OF2_position_y_shot'] = -(filtered_position_data_['0_1'][shot_frame, :][1])
-                    analysis_data['DF1_position_x_shot'] = filtered_position_data_['1_2'][shot_frame, :][0]
-                    analysis_data['DF1_position_y_shot'] = -(filtered_position_data_['1_2'][shot_frame, :][1])
-                    analysis_data['DF2_position_x_shot'] = filtered_position_data_['1_3'][shot_frame, :][0]
-                    analysis_data['DF2_position_y_shot'] = -(filtered_position_data_['1_3'][shot_frame, :][1])
-                    analysis_data['OF1_OF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][shot_frame]-filtered_position_data_['0_1'][shot_frame])))
-                    analysis_data['OF1_DF1_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][shot_frame]-filtered_position_data_['1_3'][shot_frame])))
-                    analysis_data['OF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_0'][shot_frame]-filtered_position_data_['1_2'][shot_frame])))
-                    analysis_data['OF2_DF1_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][shot_frame]-filtered_position_data_['1_3'][shot_frame])))
-                    analysis_data['OF2_DF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['0_1'][shot_frame]-filtered_position_data_['1_2'][shot_frame])))
-                    analysis_data['DF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(filtered_position_data_['1_2'][shot_frame]-filtered_position_data_['1_3'][shot_frame])))
+                    analysis_data['OF1_velocity_x_shot'] = (position_data_['0_0'][shot_frame, :][0] - position_data_['0_0'][shot_frame-3, :][0])
+                    analysis_data['OF1_velocity_y_shot'] = -((position_data_['0_0'][shot_frame, :][1] - position_data_['0_0'][shot_frame-3, :][1]))
+                    analysis_data['OF2_velocity_x_shot'] = (position_data_['0_1'][shot_frame, :][0] - position_data_['0_1'][shot_frame-3, :][0])
+                    analysis_data['OF2_velocity_y_shot'] = -((position_data_['0_1'][shot_frame, :][1] - position_data_['0_1'][shot_frame-3, :][1]))
+                    analysis_data['DF1_velocity_x_shot'] = (position_data_['1_2'][shot_frame, :][0] - position_data_['1_2'][shot_frame-3, :][0])
+                    analysis_data['DF1_velocity_y_shot'] = -((position_data_['1_2'][shot_frame, :][1] - position_data_['1_2'][shot_frame-3, :][1]))
+                    analysis_data['DF2_velocity_x_shot'] = (position_data_['1_3'][shot_frame, :][0] - position_data_['1_3'][shot_frame-3, :][0])
+                    analysis_data['DF2_velocity_y_shot'] = -((position_data_['1_3'][shot_frame, :][1] - position_data_['1_3'][shot_frame-3, :][1]))
+                    analysis_data['OF1_position_x_shot'] = position_data_['0_0'][shot_frame, :][0]
+                    analysis_data['OF1_position_y_shot'] = -(position_data_['0_0'][shot_frame, :][1])
+                    analysis_data['OF2_position_x_shot'] = position_data_['0_1'][shot_frame, :][0]
+                    analysis_data['OF2_position_y_shot'] = -(position_data_['0_1'][shot_frame, :][1])
+                    analysis_data['DF1_position_x_shot'] = position_data_['1_2'][shot_frame, :][0]
+                    analysis_data['DF1_position_y_shot'] = -(position_data_['1_2'][shot_frame, :][1])
+                    analysis_data['DF2_position_x_shot'] = position_data_['1_3'][shot_frame, :][0]
+                    analysis_data['DF2_position_y_shot'] = -(position_data_['1_3'][shot_frame, :][1])
+                    analysis_data['OF1_OF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_0'][shot_frame]-position_data_['0_1'][shot_frame])))
+                    analysis_data['OF1_DF1_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_0'][shot_frame]-position_data_['1_3'][shot_frame])))
+                    analysis_data['OF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_0'][shot_frame]-position_data_['1_2'][shot_frame])))
+                    analysis_data['OF2_DF1_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_1'][shot_frame]-position_data_['1_3'][shot_frame])))
+                    analysis_data['OF2_DF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['0_1'][shot_frame]-position_data_['1_2'][shot_frame])))
+                    analysis_data['DF1_DF2_distance_shot'] = np.sqrt(np.sum(np.square(position_data_['1_2'][shot_frame]-position_data_['1_3'][shot_frame])))
                 break
             
         if shot == False:
@@ -337,9 +238,12 @@ def get_analysis_data(filtered_positions_data):
             analysis_data['shot_t'] = None
 
         analysis_data_[externalID] = analysis_data
+
     print(f'frame_error:{frame_error}')
-    with open(path_pkl4, 'wb') as p:
-            pickle.dump(analysis_data_, p)
+
+    """ with open(path_pkl4, 'wb') as p:
+            pickle.dump(analysis_data_, p) """
+
     return analysis_data_
 
 
@@ -546,7 +450,10 @@ def plot_hist(df, feature):
                 results[i] += result
     shot_success_rate = np.zeros(n_bins)
     for i in range(n_bins):
-        shot_success_rate[i] = results[i] / ft['度数'][i]
+        if ft['度数'][i] != 0:
+            shot_success_rate[i] = results[i] / ft['度数'][i]
+        else:
+            shot_success_rate[i] = 0
     fig = plt.figure(figsize=(18,16), tight_layout=True)
     ax = plt.subplot(111)
     ax.bar(ft['階級値'], shot_success_rate, align="center", width=width, ec='black', color='#005AFF')
@@ -573,7 +480,7 @@ def calculate_shot_success_rate(df):
     
     
     
-def predict_score(df):
+def predict_score_lr(df):
     print('Logistic regression:')
     acc= []
     f1 = []
@@ -751,56 +658,32 @@ def plot_bar(df, save_dir, coef_, acc, f1):
     
     
 
-######### import bounding box #####################
-path_pkl = 'positions_data.bin'
-if(os.path.exists(path_pkl) == True):
-#if False:
-    with open(path_pkl, 'rb') as p:
-        positions_data = pickle.load(p)
+######### import positions data #####################
+positions_data_path = 'positions_data.json'
+if(os.path.exists(positions_data_path) == True):
+# if False:
+    with open(positions_data_path, 'rb') as p:
+        positions_data = json.load(p)
+    print("loading positions data completed")
 else:
-    positions_data = import_bbox() # Import bounding boxes from here.
+    print("Error: loading positions data is failed")
+    sys.exit(1)
 
-############ ground truth ##############
-keypoint_gt_file = ''
-keypoint_gt_df = pd.read_csv('./keypoints/'+keypoint_gt_file+'.csv')
-keypoint_gt = keypoint_gt_df.values[:,1:] 
-
-######### undistort bounding box #####################
-# Undistortions in bounding boxes distorted by fisheye lens undistortion.
-keypoints_fish_undistort = []
-for lab in label.annotations:
-    keypoints_fish_undistort.append(np.array([lab.value.x,lab.value.y]))
-keypoints_fish_undistort = np.array(keypoints_fish_undistort)
-keypoints_fish_undistort[:, 0] += 1600
-keypoints_fish_undistort[:, 1] += 2050
-H, *_ = cv2.findHomography(keypoints_fish_undistort, keypoint_gt, cv2.RANSAC, 5.0)
-
-path_pkl2 = 'cort_positions_data.bin'
-if(os.path.exists(path_pkl2) == True):
-#if False:
-    with open(path_pkl2, 'rb') as p:
-        cort_positions_data = pickle.load(p)
-else:
-    get_cort_positions(positions_data)
-
-path_pkl3 = 'filtered_positions_data.bin'
-if(os.path.exists(path_pkl3) == True):
-#if False:
-    with open(path_pkl3, 'rb') as p:
-        filtered_positions_data = pickle.load(p)
-else:
-    filtered_positions_data = get_low_pass_data(cort_positions_data)
-    
-# get_animation(filtered_positions_data)
+for externalID, position_data_ in positions_data.items():
+    for objectID, position_data in position_data_.items():
+        position_data_[objectID] = np.array(position_data)
+    positions_data[externalID] = position_data_
+# print(positions_data)
+# get_animation(positions_data)
 
 ################ analyze handball 2vs2 ##################
-path_pkl4 = 'analysis_data_.bin'
-if(os.path.exists(path_pkl4) == True):
+analysis_data_path = 'analysis_data_.bin'
+if(os.path.exists(analysis_data_path) == True):
 # if False:
-    with open(path_pkl4, 'rb') as p:
+    with open(analysis_data_path, 'rb') as p:
         analysis_data_ = pickle.load(p)
 else:
-    analysis_data_ = get_analysis_data(filtered_positions_data)
+    analysis_data_ = get_analysis_data(positions_data)
 
 plot_shot_position(analysis_data_)
 #plot_shot_position_by_person(analysis_data_)
@@ -836,184 +719,12 @@ columns_inc_shot = [column for column in shot_df.columns if 'shot' in column]
 columns_inc_position = [column for column in shot_df.columns if 'position' in column]
 columns_inc_velocity = [column for column in shot_df.columns if 'velocity' in column]
 
-
-if False:
-    # OF1がロングシュートを打った系列
-    df = of1_long_shot_df[list(set(columns_inc_distance)&set(columns_inc_catch))+['result', 'OF1_velocity_x_catch', 'OF1_velocity_y_catch', 'OF1_position_x_catch', 'OF1_position_y_catch']]
-    save_dir = 'OF1_long_shot/test_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # シュート時のみ
-    df = of1_long_shot_df[columns_inc_shot+['result']]
-    df = df.drop(['shot_person', 'shot_type'], axis=1)
-    save_dir = 'OF1_long_shot/OF1_shot_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    
-    # 座標
-    df = of1_long_shot_df[columns_inc_position + ['result', 'shot_t']]
-    save_dir = 'OF1_long_shot/position_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 距離
-    df = of1_long_shot_df[columns_inc_distance+['shot_t', 'result']]
-    save_dir = 'OF1_long_shot/distance_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 速度
-    df = of1_long_shot_df[columns_inc_velocity+['shot_t', 'result']]
-    save_dir = 'OF1_long_shot/velocity_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 全特徴量
-    df = pd.get_dummies(of1_long_shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success'], axis=1))
-    save_dir = 'OF1_long_shot/all_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-
-
-if False:
-    # 全系列
-    # シュート情報がないデータもあるのでキャッチ時の特徴量のみ使用
-    df = df[['result']+columns_inc_catch]
-    save_dir = 'catch_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # シュートを含む系列
-    # シュートタイプ
-    df = pd.get_dummies(shot_df[['result', 'shot_type']])
-    save_dir = 'all_shot/shot_type_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 座標
-    df = shot_df[columns_inc_position + ['result', 'shot_t']]
-    save_dir = 'all_shot/position_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 距離
-    df = shot_df[columns_inc_distance+['shot_t', 'result']]
-    save_dir = 'all_shot/distance_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 速度
-    df = shot_df[columns_inc_velocity+['shot_t', 'result']]
-    save_dir = 'all_shot/velocity_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 全特徴量
-    df = pd.get_dummies(shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success'], axis=1))
-    save_dir = 'all_shot/all_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # キャッチ時の特徴のみ
-    df = shot_df[columns_inc_catch+['result']]
-    save_dir = 'all_shot/catch_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # シュート時の特徴のみ
-    df = shot_df[columns_inc_shot+['result']]
-    df = df.drop(['shot_person', 'shot_type'], axis=1)
-    save_dir = 'all_shot/shot_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    
-    # OF1がシュートを打った系列
-    # シュートタイプ
-    df = pd.get_dummies(of1_shot_df[['result', 'shot_type']])
-    save_dir = 'OF1_shot/OF1_shot_type_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 座標
-    df = of1_shot_df[columns_inc_position+['result', 'shot_t']]
-    save_dir = 'OF1_shot/OF1_position_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 距離
-    df = of1_shot_df[columns_inc_distance+['shot_t', 'result']]
-    save_dir = 'OF1_shot/OF1_distance_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 速度
-    df = of1_shot_df[columns_inc_velocity+['shot_t', 'result']]
-    save_dir = 'OF1_shot/OF1_velocity_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 全特徴量
-    df = pd.get_dummies(of1_shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success'], axis=1))
-    save_dir = 'OF1_shot/OF1_all_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # キャッチ時の特徴のみ
-    df = of1_shot_df[columns_inc_catch+['result']]
-    save_dir = 'OF1_shot/OF1_catch_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # シュート時の特徴のみ
-    df = of1_shot_df[columns_inc_shot+['result']]
-    df = df.drop(['shot_person', 'shot_type'], axis=1)
-    save_dir = 'OF1_shot/OF1_shot_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    
-    # OF1がロングシュートを打った系列
-    df = of1_long_shot_df[columns_inc_shot+['result']]
-    df = df.drop(['shot_person', 'shot_type'], axis=1)
-    save_dir = 'OF1_long_shot/OF1_shot_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    
-    # OF1がカットインシュートを打った系列
-    df = of1_cut_in_df[columns_inc_shot+['result']]
-    df = df.drop(['shot_person', 'shot_type'], axis=1)
-    save_dir = 'OF1_cut_in/OF1_shot_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    
-    # OF2がシュートを打った系列
-    df = pd.get_dummies(of2_shot_df[['result', 'shot_type']])
-    save_dir = 'OF2_shot/OF2_shot_type_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 座標
-    df = of2_shot_df[columns_inc_position+['result', 'shot_t']]
-    save_dir = 'OF2_shot/OF2_position_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 距離
-    df = of2_shot_df[columns_inc_distance+['shot_t', 'result']]
-    save_dir = 'OF2_shot/OF2_distance_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 速度
-    df = of2_shot_df[columns_inc_velocity+['shot_t', 'result']]
-    save_dir = 'OF2_shot/OF2_velocity_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # 全特徴量
-    df = pd.get_dummies(of2_shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success'], axis=1))
-    save_dir = 'OF2_shot/OF2_all_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-
-    # キャッチ時の特徴のみ
-    df = of2_shot_df[columns_inc_catch+['result']]
-    save_dir = 'OF2_shot/OF2_catch_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-    # シュート時の特徴のみ
-    df = of2_shot_df[columns_inc_shot+['result']]
-    df = df.drop(['shot_person', 'shot_type'], axis=1)
-    save_dir = 'OF2_shot/OF2_shot_features_importance.png'
-    coef_, acc, f1 = predict_score(df)
-    plot_bar(df, save_dir, coef_, acc, f1)
-
-
+# only selected features(position, distance, OF1's velocity, and time of catch)
 if True:
-    # 特徴量を限定（位置、速度はOF1だけ、距離は全員分、時間はキャッチの時だけ）
     """ # all shot
     df = shot_df[list(set(columns_inc_distance)&set(columns_inc_catch))+['result', 'OF1_velocity_x_catch', 'OF1_velocity_y_catch', 'OF1_position_x_catch', 'OF1_position_y_catch']]
-    save_dir = 'all_shot/selected_importance_dominant'
-    coef_, acc, f1 = predict_score(df)
+    save_dir = 'all_shot/selected_importance'
+    coef_, acc, f1 = predict_score_lr(df)
     plot_bar(df, save_dir, coef_, acc, f1)
     predict_score_svc(df)
     fti, acc, f1 = predict_score_random_forest(df)
@@ -1021,18 +732,18 @@ if True:
     
     # OF1 shot
     df = of1_shot_df[list(set(columns_inc_distance)&set(columns_inc_catch))+['result', 'OF1_velocity_x_catch', 'OF1_velocity_y_catch', 'OF1_position_x_catch', 'OF1_position_y_catch']]
-    save_dir = 'OF1_shot/selected_importance_dominant'
-    coef_, acc, f1 = predict_score(df)
+    save_dir = 'OF1_shot/selected_features'
+    coef_, acc, f1 = predict_score_lr(df)
     plot_bar(df, save_dir, coef_, acc, f1)
     predict_score_svc(df)
     """ fti, acc, f1 = predict_score_random_forest(df)
     plot_bar(df, f'{save_dir}_random_forest', fti, acc, f1) """
-    predict_score_tabpfn(df)
+
     
     # OF2 shot
     """ df = of2_shot_df[list(set(columns_inc_distance)&set(columns_inc_catch))+['result', 'OF1_velocity_x_catch', 'OF1_velocity_y_catch', 'OF1_position_x_catch', 'OF1_position_y_catch']]
-    save_dir = 'OF2_shot/selected_importance_dominant'
-    coef_, acc, f1 = predict_score(df)
+    save_dir = 'OF2_shot/selected_features'
+    coef_, acc, f1 = predict_score_lr(df)
     plot_bar(df, save_dir, coef_, acc, f1)
     predict_score_svc(df)
     fti, acc, f1 = predict_score_random_forest(df)
@@ -1042,8 +753,8 @@ if True:
     # 全特徴量
     # all shot
     """ df = pd.get_dummies(shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success', 'OF1_dominant_hand'], axis=1))
-    save_dir = 'all_shot/all_features_importance_dominant'
-    coef_, acc, f1 = predict_score(df)
+    save_dir = 'all_shot/all_features'
+    coef_, acc, f1 = predict_score_lr(df)
     plot_bar(df, save_dir, coef_, acc, f1)
     predict_score_svc(df)
     fti, acc, f1 = predict_score_random_forest(df)
@@ -1052,18 +763,17 @@ if True:
     
     # OF1 shot
     df = pd.get_dummies(of1_shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success', 'OF1_dominant_hand'], axis=1))
-    save_dir = 'OF1_shot/OF1_all_features_importance_dominant'
-    coef_, acc, f1 = predict_score(df)
+    save_dir = 'OF1_shot/OF1_all_features'
+    coef_, acc, f1 = predict_score_lr(df)
     plot_bar(df, save_dir, coef_, acc, f1)
     predict_score_svc(df)
     fti, acc, f1 = predict_score_random_forest(df)
     plot_bar(df, f'{save_dir}_random_forest', fti, acc, f1)
-    predict_score_tabpfn(df)
     
     # OF2 shot
     """ df = pd.get_dummies(of2_shot_df.drop(['shot_person', 'shot_type', 'other_results', 'block_success', 'OF1_dominant_hand'], axis=1))
-    save_dir = 'OF2_shot/OF2_all_features_importance_dominant'
-    coef_, acc, f1 = predict_score(df)
+    save_dir = 'OF2_shot/OF2_all_features_importance'
+    coef_, acc, f1 = predict_score_lr(df)
     plot_bar(df, save_dir, coef_, acc, f1)
     predict_score_svc(df)
     fti, acc, f1 = predict_score_random_forest(df)
