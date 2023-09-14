@@ -12,7 +12,7 @@ If you have any questions or errors, please contact the author.
 
 ## Sample result
 This is an example of feature importance obtained by analysis.
-![selected_features](https://github.com/sflren6741/Handball_analysis/assets/103619748/b8dc71ca-5d7c-4037-8f32-1f05b60692c7)
+<img src="https://github.com/sflren6741/Handball_analysis/assets/103619748/b8dc71ca-5d7c-4037-8f32-1f05b60692c7)" width="50%" />
 ## Author
 Ren Kobayashi - kobayashi.ren@g.sp.m.is.nagoya-u.ac.jp
 
