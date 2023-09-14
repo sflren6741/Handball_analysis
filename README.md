@@ -10,6 +10,9 @@ If you have any questions or errors, please contact the author.
 ## Sample Video
 ![2on2_1_left_0 mp4_animation](https://github.com/sflren6741/Handball_analysis/assets/103619748/d4b20954-99f8-4724-8f4b-4619427ea1b9)
 
+## Sample result
+This is an example of feature importance obtained by analysis.
+![selected_features](https://github.com/sflren6741/Handball_analysis/assets/103619748/b8dc71ca-5d7c-4037-8f32-1f05b60692c7)
 ## Author
 Ren Kobayashi - kobayashi.ren@g.sp.m.is.nagoya-u.ac.jp
 
