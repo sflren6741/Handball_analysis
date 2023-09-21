@@ -31,6 +31,6 @@ Please download the data that you need from [Google Drive](https://drive.google.
 - `Handball_2on2_2022_NU.xlsx`: The annotation data.
 - `positions_data.json`: The coordinates of the players data.
 - `videos`: There are raw videos we captured. If you want to get the coordinates of the players from videos by yourself, please use them.
-### Step 2:  Running the code and check the result
+### Step 2:  Running the code and checking the results
 1. `python3 analyze_handball_2-vs-2.py`
 2. Please see `figure` to check the results.
