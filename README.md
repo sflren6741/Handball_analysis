@@ -1,4 +1,4 @@
-# [Score prediction using multiple object tracking for analyzing movements in 2-vs-2 Handball]
+# Score prediction using multiple object tracking for analyzing movements in 2-vs-2 Handball
 
 Ren Kobayashi, Rikuhei Umemoto, Kazuya Takeda, Keisuke Fujii, Score prediction using multiple object tracking for analyzing movements in 2-vs-2 Handball, IEEE 12th Global Conference on Consumer Electronics (GCCE 2023), 2023.10.10. 
 
@@ -20,8 +20,10 @@ This is an example of feature importance obtained by analysis.
 ## Author
 Ren Kobayashi - kobayashi.ren@g.sp.m.is.nagoya-u.ac.jp
 
-## Environment
-Python 3.8.10
+## Requirements
+- python 3
+- To install requirements:
+- `pip install -r requirements.txt`
 
 ## Evaluation from scratch
 ### Step 1: Downloading the required data
